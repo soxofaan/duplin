@@ -99,7 +99,7 @@ def main():
 
     # Report
     if len(groups) > 0:
-        print "Found these possible duplicates:"
+        print "Found these %d sets of possible duplicates:" % len(groups)
         for key, group in groups.items():
             # TODO: annotate key items better (based on key_structure)
             print '---', key

@@ -27,7 +27,6 @@ Found duplicates are reported and can optionally be "compressed" by hardlinking.
 # TODO: add option to exclude paths/patterns from recursive directory exploring
 # TODO: show progress bar?
 # TODO: add option to control the size of the content to hash
-# TODO: add logging/verbosity
 # TODO: add disk space freeing by hardlinking.
 # TODO: avoid separate stat calls on same file (for file size, mtime, ...). Necessary or does operating system already caches this?
 # TODO: add grouping based on users. Would this be useful?
@@ -46,7 +45,10 @@ def main():
     (clioptions, cliargs) = get_options_and_arguments_from_cli()
 
     log = logging.getLogger('duplin')
-    logging.basicConfig(level=logging.DEBUG)
+    level = logging.WARNING
+    if clioptions.verbose:
+        level = logging.DEBUG
+    logging.basicConfig(level=level)
 
     # Determine which files to compare
     if len(cliargs) < 1:
@@ -125,6 +127,11 @@ def get_options_and_arguments_from_cli():
 
     # Build the command line parser
     cliparser = optparse.OptionParser(option_class=DuplinOption)
+
+    cliparser.add_option(
+        '-v', '--verbose',
+        action='store_true', dest='verbose', default=False,
+        help='Show more runtime information.')
 
     # Duplication indicator options
     indicator_option_group = optparse.OptionGroup(cliparser,

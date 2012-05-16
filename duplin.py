@@ -26,7 +26,6 @@ Found duplicates are reported and can optionally be "compressed" by hardlinking.
 # TODO: add option to control size representation (human readable, kB, kiB, ...)
 # TODO: add option to exclude paths/patterns from recursive directory exploring
 # TODO: show progress bar?
-# TODO: add option to only compare filesize (not content hash)
 # TODO: add option to control the size of the content to hash
 # TODO: add logging/verbosity
 # TODO: add disk space freeing by hardlinking.
@@ -43,9 +42,8 @@ import stat
 
 def main():
 
-    # Handle command line interface
-    cliparser = optparse.OptionParser()
-    (clioptions, cliargs) = cliparser.parse_args()
+    # Get arguments and options from command line
+    (clioptions, cliargs) = get_options_and_arguments_from_cli()
 
     log = logging.getLogger('duplin')
     logging.basicConfig(level=logging.DEBUG)
@@ -65,25 +63,29 @@ def main():
 
     # TODO: group on relative file path
 
-    # Group on filename
-    groups = refine_groups(groups, lambda f: os.path.split(f)[1])
-    key_structure += ('filename',)
-    log.debug('After filename based grouping: %d groups.' % len(groups))
+    if clioptions.group_on_filename:
+        # Group on filename
+        groups = refine_groups(groups, lambda f: os.path.split(f)[1])
+        key_structure += ('filename',)
+        log.debug('After filename based grouping: %d groups.' % len(groups))
 
-    # Group on file size
-    groups = refine_groups(groups, lambda f: os.path.getsize(f))
-    key_structure += ('size',)
-    log.debug('After filesize based grouping: %d groups.' % len(groups))
+    if clioptions.group_on_filesize:
+        # Group on file size
+        groups = refine_groups(groups, lambda f: os.path.getsize(f))
+        key_structure += ('size',)
+        log.debug('After filesize based grouping: %d groups.' % len(groups))
 
-    # Group on modification time
-    groups = refine_groups(groups, lambda f: os.stat(f)[stat.ST_MTIME])
-    key_structure += ('mtime',)
-    log.debug('After mtime based grouping: %d groups.' % len(groups))
+    if clioptions.group_on_mtime:
+        # Group on modification time
+        groups = refine_groups(groups, lambda f: os.stat(f)[stat.ST_MTIME])
+        key_structure += ('mtime',)
+        log.debug('After mtime based grouping: %d groups.' % len(groups))
 
-    # Group on content hash
-    groups = refine_groups(groups, lambda f: md5hash(f))
-    key_structure += ('digest',)
-    log.debug('After content digest based grouping: %d group.' % len(groups))
+    if clioptions.group_on_content:
+        # Group on content hash
+        groups = refine_groups(groups, lambda f: md5hash(f))
+        key_structure += ('digest',)
+        log.debug('After content digest based grouping: %d group.' % len(groups))
 
     # Remove singletons from last refinement output
     refined_groups = {}
@@ -103,6 +105,62 @@ def main():
                 print file
     else:
         print 'No duplicates found'
+
+def get_options_and_arguments_from_cli():
+    '''
+    Helper function to build and use a command line argument parser.
+    '''
+
+    # Extend optparse for human usable boolean options
+    def check_humanbool(option, opt, value):
+        try:
+            return {'on': True, 'yes': True, '1': True, 'off': False, 'no': False, '0': False}[value.lower()]
+        except KeyError:
+            raise optparse.OptionValueError("option %s: invalid value: %r" % (opt, value))
+
+    class DuplinOption(optparse.Option):
+        TYPES = optparse.Option.TYPES + ('humanbool',)
+        TYPE_CHECKER = optparse.Option.TYPE_CHECKER.copy()
+        TYPE_CHECKER['humanbool'] = check_humanbool
+
+    # Build the command line parser
+    cliparser = optparse.OptionParser(option_class=DuplinOption)
+
+    # Duplication indicator options
+    indicator_option_group = optparse.OptionGroup(cliparser,
+        "Duplication indicator options",
+        "Enable ('on', 'yes', '1') or disable ('off', 'no', '0') the available duplication indicator options."
+    )
+    indicators = {
+        'filename': {
+            'help name': 'file name (just basename, not path)',
+            'default': True,
+        },
+        'filesize': {
+            'help name': 'file size',
+            'default': True,
+        },
+        'mtime': {
+            'help name': 'file last modification time',
+            'default': False,
+        },
+        'content': {
+            'help name': 'file content digest',
+            'default': True,
+        },
+    }
+    for key, data in indicators.items():
+        help = 'Use %s as duplication indicator. Default: %s.' % (data['help name'], {0: 'off', 1: 'on'}[data['default']])
+        indicator_option_group.add_option(
+            '--' + key, metavar='[on|off]',
+            action='store', type='humanbool', dest='group_on_' + key, default=data['default'],
+            help=help)
+
+    cliparser.add_option_group(indicator_option_group)
+
+    # Use the command line argument parser
+    (clioptions, cliargs) = cliparser.parse_args()
+    return (clioptions, cliargs)
 
 
 def get_file_list(seeds):

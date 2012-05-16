@@ -36,6 +36,7 @@ import os
 import optparse
 import hashlib
 import pprint
+import logging
 
 def main():
 
@@ -43,12 +44,17 @@ def main():
     cliparser = optparse.OptionParser()
     (clioptions, cliargs) = cliparser.parse_args()
 
+    log = logging.getLogger('duplin')
+    logging.basicConfig(level=logging.DEBUG)
+
     # Determine which files to compare
     if len(cliargs) < 1:
         seeds = '.'
     else:
         seeds = cliargs
     file_list = get_file_list(seeds)
+
+    log.debug('Starting analysis of %d files.' % len(file_list))
 
     # Start with one group of everything
     groups = {(): file_list}
@@ -59,10 +65,12 @@ def main():
     # Group on filename
     groups = refine_groups(groups, lambda f: os.path.split(f)[1])
     key_structure += ('filename',)
+    log.debug('After filename based grouping: %d groups.' % len(groups))
 
     # Group on file size
     groups = refine_groups(groups, lambda f: os.path.getsize(f))
     key_structure += ('size',)
+    log.debug('After filesize based grouping: %d groups.' % len(groups))
 
     # TODO: Group on owner
     # TODO: Group on date
@@ -70,6 +78,8 @@ def main():
     # Group on content hash
     groups = refine_groups(groups, lambda f: md5hash(f))
     key_structure += ('digest',)
+    log.debug('After content digest based grouping: %d group.' % len(groups))
+
 
     # Remove singletons from last refinement output
     refined_groups = {}
@@ -77,6 +87,7 @@ def main():
         if len(file_list) >= 2:
             refined_groups[key] = file_list
     groups = refined_groups
+    log.debug('After singleton cleanup: %d group.' % len(groups))
 
     # Report
     if len(groups) > 0:

@@ -30,6 +30,8 @@ Found duplicates are reported and can optionally be "compressed" by hardlinking.
 # TODO: add option to control the size of the content to hash
 # TODO: add logging/verbosity
 # TODO: add disk space freeing by hardlinking.
+# TODO: avoid separate stat calls on same file (for file size, mtime, ...). Necessary or does operating system already caches this?
+# TODO: add grouping based on users. Would this be useful?
 
 import sys
 import os
@@ -37,6 +39,7 @@ import optparse
 import hashlib
 import pprint
 import logging
+import stat
 
 def main():
 
@@ -72,14 +75,15 @@ def main():
     key_structure += ('size',)
     log.debug('After filesize based grouping: %d groups.' % len(groups))
 
-    # TODO: Group on owner
-    # TODO: Group on date
+    # Group on modification time
+    groups = refine_groups(groups, lambda f: os.stat(f)[stat.ST_MTIME])
+    key_structure += ('mtime',)
+    log.debug('After mtime based grouping: %d groups.' % len(groups))
 
     # Group on content hash
     groups = refine_groups(groups, lambda f: md5hash(f))
     key_structure += ('digest',)
     log.debug('After content digest based grouping: %d group.' % len(groups))
-
 
     # Remove singletons from last refinement output
     refined_groups = {}

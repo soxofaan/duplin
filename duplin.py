@@ -52,7 +52,7 @@ def main():
 
     # Determine which files to compare
     if len(cliargs) < 1:
-        seeds = '.'
+        seeds = ['.']
     else:
         seeds = cliargs
     file_list = get_file_list(seeds)
@@ -177,7 +177,7 @@ def get_file_list(seeds):
 
     @param seeds list of files or directories
 
-    @return list of
+    @return list of file paths (relative to given seed paths)
     '''
 
     file_list = []

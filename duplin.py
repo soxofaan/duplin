@@ -236,7 +236,7 @@ def refine_groups(groups, function):
     return refined_groups
 
 
-def md5hash(filename, size=5000):
+def md5hash(filename, size=50000):
     '''
     Helper function to calculate MD5 hash of the file contents
     (up to a given number of bytes).
@@ -247,7 +247,9 @@ def md5hash(filename, size=5000):
     f = open(filename, 'r')
     data = f.read(size)
     f.close()
-    return hashlib.md5(data).hexdigest()
+    hash = hashlib.md5(data).hexdigest()
+    del data
+    return hash
 
 
 if __name__ == '__main__':

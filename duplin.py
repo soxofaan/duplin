@@ -60,9 +60,9 @@ def main():
         seeds = ['.']
     else:
         seeds = cliargs
-    file_list = get_file_list(seeds)
+    files = collect_files(seeds)
 
-    _log.debug('Starting analysis of %d files.' % len(file_list))
+    _log.debug('Starting analysis of %d files.' % len(files))
 
     # Put the duplication indicators in a dictionary to pass as kwargs below.
     duplication_indicator_options = {
@@ -76,7 +76,7 @@ def main():
         duplication_indicator_options = {}
 
     # Split the file list in groups based on the duplication indicator options.
-    groups = duplin(file_list, **duplication_indicator_options)
+    groups = duplin(files, **duplication_indicator_options)
 
     # Report
     if len(groups) > 0:
@@ -90,14 +90,14 @@ def main():
         print 'No duplicates found'
 
 
-def duplin(file_list, group_on_filesize=True, group_on_content=True, group_on_filename=False, group_on_mtime=False):
+def duplin(files, group_on_filesize=True, group_on_content=True, group_on_filename=False, group_on_mtime=False):
     '''
-    Split the given file list in duplicate groups based on the given duplication indicators
+    Split the given file set in duplicate groups based on the given duplication indicators
     '''
     global _log
 
     # Start with one group of everything
-    groups = {(): file_list}
+    groups = {(): files}
     key_structure = ()
 
     if group_on_filename:
@@ -126,9 +126,9 @@ def duplin(file_list, group_on_filesize=True, group_on_content=True, group_on_fi
 
     # Remove singletons from last refinement output
     refined_groups = {}
-    for key, file_list in groups.iteritems():
-        if len(file_list) >= 2:
-            refined_groups[key] = file_list
+    for key, files in groups.iteritems():
+        if len(files) >= 2:
+            refined_groups[key] = files
     groups = refined_groups
     _log.debug('After singleton cleanup: %d group.' % len(groups))
 
@@ -183,29 +183,29 @@ def get_options_and_arguments_from_cli():
     return (clioptions, cliargs)
 
 
-def get_file_list(seeds):
+def collect_files(seeds):
     '''
     Build file list based on given seeds: file names
     directory names (which will be explored recursively)
 
     @param seeds list of files or directories
 
-    @return list of file paths (relative to given seed paths)
+    @return set of file paths (relative to given seed paths)
     '''
 
-    file_list = []
+    files = set()
     for seed in seeds:
         if os.path.isfile(seed):
             # just add files
-            file_list.append(seed)
+            files.add(seed)
         elif os.path.isdir(seed):
             # Recursively explore directories
             for (dirpath, dirnames, filenames) in os.walk(seed):
                 for filename in filenames:
-                    file_list.append(os.path.join(dirpath, filename))
+                    files.add(os.path.join(dirpath, filename))
         else:
             raise RuntimeError('Could not find file/directory "{0}"'.format(seed))
-    return file_list
+    return files
 
 
 def refine_groups(groups, function):
@@ -220,15 +220,19 @@ def refine_groups(groups, function):
     @return new dictionary mapping refined keys to refined groups
     '''
     refined_groups = {}
-    for key, file_list in groups.iteritems():
+    for key, files in groups.iteritems():
         # Drop singletons.
-        if len(file_list) < 2:
+        if len(files) < 2:
             continue
         # Refine real groups.
-        for f in file_list:
+        for f in files:
+            # Apply function to refine file key
             subkey = function(f)
             refined_key = key + (subkey,)
-            refined_groups[refined_key] = refined_groups.get(refined_key, []) + [f]
+            # Reassign to refined groups.
+            if refined_key not in refined_groups:
+                refined_groups[refined_key] = set()
+            refined_groups[refined_key].add(f)
     return refined_groups
 
 

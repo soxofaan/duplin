@@ -16,12 +16,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ##############################################################################
 
-'''
+"""
 Tool to search for file duplicates, based on a selectable subset of indicators
 (file size, attributes, filename, relative path, content, ...
 
 Found duplicates are reported and can optionally be "compressed" by hardlinking.
-'''
+"""
 
 # TODO: add option to control size representation (human readable, kB, kiB, ...)
 # TODO: add option to exclude paths/patterns from recursive directory exploring
@@ -31,20 +31,19 @@ Found duplicates are reported and can optionally be "compressed" by hardlinking.
 # TODO: avoid separate stat calls on same file (for file size, mtime, ...). Necessary or does operating system already caches this?
 # TODO: add grouping based on users. Would this be useful?
 # TODO: group on relative file path
+# TODO switch to argparse
 
-import sys
-import os
-import optparse
+
 import hashlib
-import pprint
 import logging
+import optparse
+import os
 import stat
 
 _log = logging.getLogger('duplin')
 
 
 def main():
-
     # Get arguments and options from command line
     (clioptions, cliargs) = get_options_and_arguments_from_cli()
 
@@ -69,10 +68,10 @@ def main():
         'group_on_filename': clioptions.group_on_filename,
         'group_on_filesize': clioptions.group_on_filesize,
         'group_on_content': clioptions.group_on_content,
-        'group_on_mtime':  clioptions.group_on_mtime,
+        'group_on_mtime': clioptions.group_on_mtime,
     }
     # If all indicator are disabled: do not set duplication indicator options, so the defaults are used.
-    if reduce(lambda x, y: x or y, duplication_indicator_options.values(), False) == False:
+    if not any(duplication_indicator_options.values()):
         duplication_indicator_options = {}
 
     # Split the file list in groups based on the duplication indicator options.
@@ -80,20 +79,20 @@ def main():
 
     # Report
     if len(groups) > 0:
-        print "Found these %d sets of possible duplicates:" % len(groups)
-        for key, group in groups.items():
+        print("Found these %d sets of possible duplicates:" % len(groups))
+        for key, group in list(groups.items()):
             # TODO: annotate key items better (based on key_structure)
-            print '---', key
+            print('---', key)
             for file in group:
-                print file
+                print(file)
     else:
-        print 'No duplicates found'
+        print('No duplicates found')
 
 
 def duplin(files, group_on_filesize=True, group_on_content=True, group_on_filename=False, group_on_mtime=False):
-    '''
+    """
     Split the given file set in duplicate groups based on the given duplication indicators
-    '''
+    """
     global _log
 
     # Start with one group of everything
@@ -126,7 +125,7 @@ def duplin(files, group_on_filesize=True, group_on_content=True, group_on_filena
 
     # Remove singletons from last refinement output
     refined_groups = {}
-    for key, files in groups.iteritems():
+    for key, files in groups.items():
         if len(files) >= 2:
             refined_groups[key] = files
     groups = refined_groups
@@ -136,9 +135,9 @@ def duplin(files, group_on_filesize=True, group_on_content=True, group_on_filena
 
 
 def get_options_and_arguments_from_cli():
-    '''
+    """
     Helper function to build and use a command line argument parser.
-    '''
+    """
 
     # Build the command line parser
     cliparser = optparse.OptionParser()
@@ -177,21 +176,20 @@ def get_options_and_arguments_from_cli():
         action='store_true', dest='verbose', default=False,
         help='Show more runtime information.')
 
-
     # Use the command line argument parser
     (clioptions, cliargs) = cliparser.parse_args()
-    return (clioptions, cliargs)
+    return clioptions, cliargs
 
 
 def collect_files(seeds):
-    '''
+    """
     Build file list based on given seeds: file names
     directory names (which will be explored recursively)
 
     @param seeds list of files or directories
 
     @return set of file paths (relative to given seed paths)
-    '''
+    """
 
     files = set()
     for seed in seeds:
@@ -209,7 +207,7 @@ def collect_files(seeds):
 
 
 def refine_groups(groups, function):
-    '''
+    """
     Refine a grouping of files based on the given hash function.
     As application specific optimization, singletons in the input
     grouping will be ignored. However, the output grouping can still
@@ -218,9 +216,9 @@ def refine_groups(groups, function):
     @param groups a dictionary mapping keys to file lists.
 
     @return new dictionary mapping refined keys to refined groups
-    '''
+    """
     refined_groups = {}
-    for key, files in groups.iteritems():
+    for key, files in groups.items():
         # Drop singletons.
         if len(files) < 2:
             continue
@@ -237,14 +235,14 @@ def refine_groups(groups, function):
 
 
 def md5hash(filename, size=50000):
-    '''
+    """
     Helper function to calculate MD5 hash of the file contents
     (up to a given number of bytes).
 
     @param filename file path of file to process
     @param size the maximum number of bytes to read
-    '''
-    f = open(filename, 'r')
+    """
+    f = open(filename, 'rb')
     data = f.read(size)
     f.close()
     hash = hashlib.md5(data).hexdigest()
